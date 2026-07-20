@@ -99,7 +99,12 @@
       items[active].scrollIntoView({ block: 'nearest' });
     }
     function choose(a) {
-      input.value = (a.city ? a.city + ' ' : '') + '(' + a.code + ')';
+      // "Prague [Praha]" → "Praha"; když závorka není, necháme původní název
+      var city = (a.city || a.name || '');
+      var m = city.match(/\[([^\]]+)\]/);
+      if (m) city = m[1];
+      city = city.trim();
+      input.value = city + ' (' + a.code + ')';
       if (codeField) codeField.value = a.code;
       close();
       // ať booking-form.js zachytí změnu (auto-save + sync do druhé instance)
