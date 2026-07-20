@@ -1,5 +1,5 @@
 /* =========================================================================
-   airport-autocomplete.js  v0.0.1  —  Air Bohemia našeptávač letišť
+   airport-autocomplete.js  v0.0.5  —  Air Bohemia našeptávač letišť
    -------------------------------------------------------------------------
    Odvozeno ze StyleJet v0.0.3. Rozdíly:
    - AIRPORTS_URL míří na vlastní kopii v AB repu (StyleJet visel na
@@ -9,6 +9,14 @@
      StyleJet fallbackoval na `document`, což by při DVOU instancích
      komponenty na jedné stránce zapsalo IATA kód vždy do té první (hero),
      i když uživatel píše ve footeru.
+
+   ZMĚNY v0.0.5:
+   - Nová funkce czCity(): z "Milan [Milán] / Malpensa" udělá
+     "Milán / Malpensa". Data v airports.json mají formát
+     "Anglicky [Česky]" — hledá se podle obojího, zobrazuje se česky.
+   - czCity() se používá na DVOU místech: ve vybrané hodnotě (choose)
+     i v rozbalené nabídce. Kdyby jen v jednom, uživatel by v nabídce
+     viděl hranaté závorky.
 
    ⚡ PŘECHOD NA AVINODE = upravíš JEN funkci fetchAirports() níže.
       Musí vracet Promise pole: [{code, name, city, country}, ...]
@@ -37,10 +45,22 @@
     var res = [];
     for (var i = 0; i < data.length && res.length < MAX_RESULTS; i++) {
       var a = data[i];
+      // hledá se i v původním (anglickém) názvu — "munich" i "mnichov" najde MUC
       var hay = (a.code + ' ' + a.name + ' ' + a.city + ' ' + a.country).toLowerCase();
       if (hay.indexOf(q) !== -1) res.push(a);
     }
     return res;
+  }
+
+  /* -----------------------------------------------------------------------
+     czCity() — normalizace názvu města pro zobrazení
+     "Milan [Milán] / Malpensa"  → "Milán / Malpensa"
+     "Prague [Praha]"            → "Praha"
+     "Nice"                      → "Nice"   (bez závorky = beze změny)
+     ----------------------------------------------------------------------- */
+  function czCity(a) {
+    var c = (a.city || a.name || '');
+    return c.replace(/\s*[^\[\]]*\[([^\]]+)\]/, '$1').trim();
   }
 
   function injectStyles() {
@@ -92,19 +112,16 @@
       items = [];
       active = -1;
     }
+
     function setActive(i) {
       if (!items.length) return;
       active = (i + items.length) % items.length;
       items.forEach(function (el, idx) { el.classList.toggle('is-active', idx === active); });
       items[active].scrollIntoView({ block: 'nearest' });
     }
+
     function choose(a) {
-      // "Prague [Praha]" → "Praha"; když závorka není, necháme původní název
-      var city = (a.city || a.name || '');
-      var m = city.match(/\[([^\]]+)\]/);
-      if (m) city = m[1];
-      city = city.trim();
-      input.value = city + ' (' + a.code + ')';
+      input.value = czCity(a) + ' (' + a.code + ')';
       if (codeField) codeField.value = a.code;
       close();
       // ať booking-form.js zachytí změnu (auto-save + sync do druhé instance)
@@ -120,8 +137,8 @@
         matches.forEach(function (a) {
           var el = document.createElement('div');
           el.className = 'airport-suggestion';
-          var sub = (a.name && a.city ? a.name + ' \u00b7 ' : '') + (a.country || '');
-          el.innerHTML = (a.city || a.name) + ' (' + a.code + ') <small>' + sub + '</small>';
+          var sub = (a.name ? a.name + ' \u00b7 ' : '') + (a.country || '');
+          el.innerHTML = czCity(a) + ' (' + a.code + ') <small>' + sub + '</small>';
           el.addEventListener('mousedown', function (e) { e.preventDefault(); choose(a); });
           list.appendChild(el);
           items.push(el);
@@ -134,6 +151,7 @@
       if (codeField) codeField.value = '';
       run();
     });
+
     input.addEventListener('keydown', function (e) {
       if (!list.classList.contains('is-open')) return;
       if (e.key === 'ArrowDown')    { e.preventDefault(); setActive(active + 1); }
@@ -144,6 +162,7 @@
       }
       else if (e.key === 'Escape')  { close(); }
     });
+
     input.addEventListener('blur', function () { setTimeout(close, 150); });
   }
 
@@ -155,5 +174,5 @@
   if (document.readyState !== 'loading') attachAll();
   else document.addEventListener('DOMContentLoaded', attachAll);
 
-  window.AirportAutocomplete = { attachAll: attachAll, fetchAirports: fetchAirports };
+  window.AirportAutocomplete = { attachAll: attachAll, fetchAirports: fetchAirports, czCity: czCity };
 })();
