@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.0.5  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.0.6  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,10 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.0.6:
+   - FIX: kliknutí na "Pokračovat" už neodskočí k druhé instanci formuláře.
+     revealStep2() scrolluje jen tam, kde uživatel kliknul.
 
    ZMĚNY v0.0.5:
    - buildReadable() už nepřilepuje IATA kód v závorce. Našeptávač ho totiž
@@ -238,14 +242,17 @@
   }
 
   // ---- odhalení kroku 2 -----------------------------------------------------
-  function revealStep2(root) {
+  // scroll = true jen pro instanci, ve které uživatel kliknul. Krok 2 se otevírá
+  // v OBOU instancích, ale scrollovat smí jen jedna — jinak druhé volání
+  // "vyhraje" a odsune uživatele k druhému formuláři.
+  function revealStep2(root, scroll) {
     var step2   = $('[data-step="2"]', root);
     var nextBtn = $('[data-step1-next]', root);
     if (!step2) return;
     step2.style.display = 'flex';   // explicitní hodnota přebije class s display:none
     if (nextBtn) nextBtn.style.display = 'none';
     root.setAttribute('data-step2-open', 'true');
-    step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (scroll) step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   // =========================================================================
@@ -286,10 +293,10 @@
       e.preventDefault();
       if (!validateStep1(root)) return;
       saveFlight(root);
-      revealStep2(root);
-      // otevřít krok 2 i v druhé instanci, ať jsou opravdu "jako jeden"
+      revealStep2(root, true);          // tady scrollujeme
+      // otevřít krok 2 i v druhé instanci, ale BEZ scrollu
       instances.forEach(function (other) {
-        if (other !== root) revealStep2(other);
+        if (other !== root) revealStep2(other, false);
       });
     });
 
