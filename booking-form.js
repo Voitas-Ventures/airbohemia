@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.0.1  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.0.5  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,12 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.0.5:
+   - buildReadable() už nepřilepuje IATA kód v závorce. Našeptávač ho totiž
+     zapisuje rovnou do viditelné hodnoty ("Praha (PRG)"), takže se kód
+     v e-mailu objevoval dvakrát: "Odkud: Linz (LNZ) (LNZ)".
+     Kód zůstává dostupný ve viditelné hodnotě i zvlášť v JSONu (fromCode).
 
    ÚLOŽIŠTĚ:
    - sessionStorage `ab_flight`   — letové údaje (přežije refresh, ne zavření tabu)
@@ -71,7 +77,7 @@
 
   // ---- lidsky čitelný výstup (pro e-mailovou notifikaci) --------------------
   function buildReadable(s) {
-   return [
+    return [
       'Odkud: '         + (s.from || '—'),
       'Kam: '           + (s.to   || '—'),
       'Počet osob: '    + (s.pax       || '—'),
