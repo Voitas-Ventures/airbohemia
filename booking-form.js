@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.0.6  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.0.7  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,10 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.0.7:
+   - Krok 2 se odhaluje animovaně (height + opacity, STEP2_ANIM_MS nahoře).
+     Respektuje prefers-reduced-motion.
 
    ZMĚNY v0.0.6:
    - FIX: kliknutí na "Pokračovat" už neodskočí k druhé instanci formuláře.
@@ -37,6 +41,9 @@
   var FLIGHT_KEY  = 'ab_flight';    // sessionStorage
   var DRAFT_KEY   = 'ab_draft';     // sessionStorage
   var CONTACT_KEY = 'ab_contact';   // localStorage
+
+  // Délka animace odhalení kroku 2 (ms). Chceš pomaleji? Zvyš tohle číslo.
+  var STEP2_ANIM_MS = 550;
 
   var FLIGHT_FIELDS  = ['from', 'from-code', 'to', 'to-code', 'pax', 'depart-at', 'return-at'];
   var STEP2_FIELDS   = ['name', 'phone', 'email', 'note'];
@@ -245,14 +252,55 @@
   // scroll = true jen pro instanci, ve které uživatel kliknul. Krok 2 se otevírá
   // v OBOU instancích, ale scrollovat smí jen jedna — jinak druhé volání
   // "vyhraje" a odsune uživatele k druhému formuláři.
-  function revealStep2(root, scroll) {
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  // scroll = true jen pro instanci, ve které uživatel kliknul.
+  // animate = false pro okamžité otevření (obnova po refreshi).
+  function revealStep2(root, scroll, animate) {
     var step2   = $('[data-step="2"]', root);
     var nextBtn = $('[data-step1-next]', root);
     if (!step2) return;
-    step2.style.display = 'flex';   // explicitní hodnota přebije class s display:none
-    if (nextBtn) nextBtn.style.display = 'none';
+    if (root.getAttribute('data-step2-open') === 'true') return;  // už otevřeno
     root.setAttribute('data-step2-open', 'true');
-    if (scroll) step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (nextBtn) nextBtn.style.display = 'none';
+    step2.style.display = 'flex';   // explicitní hodnota přebije class s display:none
+
+    var dur = (animate === false || prefersReducedMotion()) ? 0 : STEP2_ANIM_MS;
+
+    if (!dur) {
+      if (scroll) step2.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+      return;
+    }
+
+    // display se animovat nedá — měříme cílovou výšku a animujeme height + opacity
+    var target = step2.scrollHeight;
+    step2.style.overflow   = 'hidden';
+    step2.style.height     = '0px';
+    step2.style.opacity    = '0';
+    step2.style.transition = 'height ' + dur + 'ms cubic-bezier(.22,.61,.36,1), ' +
+                             'opacity ' + Math.round(dur * 0.8) + 'ms ease';
+    void step2.offsetHeight;        // vynutí reflow, jinak prohlížeč sloučí obě hodnoty
+
+    step2.style.height  = target + 'px';
+    step2.style.opacity = '1';
+
+    // po dojetí uklidíme inline styly — jinak by pevná výška ořízla obsah,
+    // který se objeví později (např. hlášky o chybné validaci)
+    setTimeout(function () {
+      step2.style.height     = '';
+      step2.style.overflow   = '';
+      step2.style.transition = '';
+      step2.style.opacity    = '';
+    }, dur + 40);
+
+    if (scroll) {
+      setTimeout(function () {
+        step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, Math.round(dur * 0.35));   // scroll až když je panel částečně rozbalený
+    }
   }
 
   // =========================================================================
@@ -293,10 +341,10 @@
       e.preventDefault();
       if (!validateStep1(root)) return;
       saveFlight(root);
-      revealStep2(root, true);          // tady scrollujeme
+      revealStep2(root, true, true);    // tady scrollujeme
       // otevřít krok 2 i v druhé instanci, ale BEZ scrollu
       instances.forEach(function (other) {
-        if (other !== root) revealStep2(other, false);
+        if (other !== root) revealStep2(other, false, true);
       });
     });
 
