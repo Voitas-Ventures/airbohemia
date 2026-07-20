@@ -71,9 +71,9 @@
 
   // ---- lidsky čitelný výstup (pro e-mailovou notifikaci) --------------------
   function buildReadable(s) {
-    return [
-      'Odkud: '         + (s.from      || '—') + (s['from-code'] ? ' (' + s['from-code'] + ')' : ''),
-      'Kam: '           + (s.to        || '—') + (s['to-code']   ? ' (' + s['to-code']   + ')' : ''),
+   return [
+      'Odkud: '         + (s.from || '—'),
+      'Kam: '           + (s.to   || '—'),
       'Počet osob: '    + (s.pax       || '—'),
       'Datum odletu: '  + (s['depart-at'] || '—'),
       'Datum návratu: ' + (s['return-at'] || '—')
