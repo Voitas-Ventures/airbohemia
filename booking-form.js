@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.0.7  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.0.8  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,13 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.0.8:
+   - Nové pole email-body: skript složí CELÝ notifikační e-mail (letové údaje
+     + kontakt + zdroj) do jednoho pole. Ve Webflow Body pak stačí
+     {{email-body}} — konec duplicitních polí a JSONu v e-mailu.
+   - Prázdná poznámka → "—" (žádný ošklivý visící řádek).
+   - source má i čitelnou variantu ("hlavní sekce (hero)").
 
    ZMĚNY v0.0.7:
    - Krok 2 se odhaluje animovaně (height + opacity, STEP2_ANIM_MS nahoře).
@@ -94,6 +101,35 @@
       'Počet osob: '    + (s.pax       || '—'),
       'Datum odletu: '  + (s['depart-at'] || '—'),
       'Datum návratu: ' + (s['return-at'] || '—')
+    ].join('<br>');
+  }
+
+  // Čitelný název místa, odkud poptávka přišla (pro člověka, ne 'hero'/'footer').
+  function sourceLabel(src) {
+    if (src === 'hero')   return 'hlavní sekce (hero)';
+    if (src === 'footer') return 'patička (footer)';
+    return src || '—';
+  }
+
+  // Sestaví KOMPLETNÍ tělo notifikačního e-mailu do jednoho pole.
+  // Webflow pak v Body stačí {{email-body}} — žádná duplicitní pole.
+  function buildEmailBody(root, s) {
+    var g = function (n) { return getVal(root, n); };
+    var note = g('note');
+    var srcEl = root.closest('[data-form-source]');
+    var src = srcEl ? srcEl.getAttribute('data-form-source') : '';
+
+    return [
+      '<strong>Detaily letu</strong>',
+      buildReadable(s),
+      '',
+      '<strong>Kontakt</strong>',
+      'Jméno: '   + (g('name')  || '—'),
+      'Telefon: ' + (g('phone') || '—'),
+      'E-mail: '  + (g('email') || '—'),
+      'Poznámka: ' + (note ? note : '—'),
+      '',
+      'Poptávka odeslána z: ' + sourceLabel(src)
     ].join('<br>');
   }
 
@@ -226,9 +262,12 @@
       returnAt: s['return-at']
     }));
 
-    // 3) odkud poptávka přišla (hero / footer)
+    // 3) odkud poptávka přišla (hero / footer) — strojově
     var srcEl = root.closest('[data-form-source]');
     setVal(root, 'source', srcEl ? srcEl.getAttribute('data-form-source') : '');
+
+    // 4) KOMPLETNÍ tělo e-mailu do jednoho pole (do Body stačí {{email-body}})
+    setVal(root, 'email-body', buildEmailBody(root, s));
   }
 
   // ---- validace kroku 1 -----------------------------------------------------
