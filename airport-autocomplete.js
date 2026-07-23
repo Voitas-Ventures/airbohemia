@@ -1,5 +1,5 @@
 /* =========================================================================
-   airport-autocomplete.js  v0.0.5  —  Air Bohemia našeptávač letišť
+   airport-autocomplete.js  v0.1.0  —  Air Bohemia našeptávač letišť
    -------------------------------------------------------------------------
    Odvozeno ze StyleJet v0.0.3. Rozdíly:
    - AIRPORTS_URL míří na vlastní kopii v AB repu (StyleJet visel na
@@ -9,6 +9,9 @@
      StyleJet fallbackoval na `document`, což by při DVOU instancích
      komponenty na jedné stránce zapsalo IATA kód vždy do té první (hero),
      i když uživatel píše ve footeru.
+
+   ZMĚNY v0.1.0:
+   - codeField se hledá podle data-f (fallback na name).
 
    ZMĚNY v0.0.5:
    - Nová funkce czCity(): z "Milan [Milán] / Malpensa" udělá
@@ -24,7 +27,7 @@
 (function () {
   'use strict';
 
-  var AIRPORTS_URL = 'https://cdn.jsdelivr.net/gh/Voitas-Ventures/airbohemia@v0.0.5/airports.json';
+  var AIRPORTS_URL = 'https://cdn.jsdelivr.net/gh/Voitas-Ventures/airbohemia@v0.1.0/airports.json';
   var MAX_RESULTS  = 8;
   var MIN_CHARS    = 2;
 
@@ -96,8 +99,11 @@
 
     // KLÍČOVÉ: scope na vlastní instanci komponenty, ne na document
     var scope = input.closest('[data-booking]') || document;
-    var codeField = input.dataset.codeField
-      ? scope.querySelector('[name="' + input.dataset.codeField + '"]')
+    // hledáme primárně podle data-f (name je vyhrazený pro popisek v e-mailu)
+    var cf = input.dataset.codeField;
+    var codeField = cf
+      ? (scope.querySelector('[data-f="' + cf + '"]') ||
+         scope.querySelector('[name="' + cf + '"]'))
       : null;
 
     var list = document.createElement('div');
