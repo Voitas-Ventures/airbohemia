@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.0.9  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.1.0  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,16 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.1.0:
+   - Pole se hledají podle data-f, ne podle name. Atribut `name` je tím
+     uvolněný pro české popisky, které Webflow použije v {{formData}}.
+     Starý markup (jen name) funguje dál — fallback zůstal.
+   - Nová pole trip-type a source-label (uvnitř <form>) → v e-mailu se
+     objeví jako "Typ letu: zpáteční" a "Zdroj poptávky: hlavní sekce (hero)".
+   ⚠️ Pomocná pole (from-code, to-code, itinerary, email-body) přesuň VEN
+      z <form>, ale nech uvnitř [data-booking]. Skript je najde, Webflow
+      je neodešle → nebudou špinit e-mail.
 
    ZMĚNY v0.0.9:
    - Návrat je nyní VOLITELNÝ. Bez data návratu = jednosměrný let.
@@ -69,7 +79,15 @@
   // ---- utils ---------------------------------------------------------------
   function $(sel, ctx)  { return (ctx || document).querySelector(sel); }
   function $$(sel, ctx) { return Array.prototype.slice.call((ctx || document).querySelectorAll(sel)); }
-  function field(root, name) { return root.querySelector('[name="' + name + '"]'); }
+  // Pole se hledají podle data-f, ne podle name. Důvod: atribut `name` musí
+  // zůstat volný pro Webflow — v notifikačním e-mailu ({{formData}}) se totiž
+  // `name` používá jako popisek řádku. Takže name="Odkud", data-f="from".
+  // Fallback na [name] je kvůli zpětné kompatibilitě se starším markupem.
+  function field(root, key) {
+    return root.querySelector('[data-f="' + key + '"]') ||
+           root.querySelector('[name="' + key + '"]');
+  }
+  function keyOf(el) { return (el && (el.getAttribute('data-f') || el.name)) || ''; }
   function getVal(root, name) { var el = field(root, name); return el ? el.value : ''; }
   function setVal(root, name, v) {
     var el = field(root, name);
@@ -279,7 +297,14 @@
     var srcEl = root.closest('[data-form-source]');
     setVal(root, 'source', srcEl ? srcEl.getAttribute('data-form-source') : '');
 
-    // 4) KOMPLETNÍ tělo e-mailu do jednoho pole (do Body stačí {{email-body}})
+    // 4) typ letu a čitelný zdroj — tahle DVĚ pole jsou uvnitř <form>,
+    //    takže se objeví v {{formData}} jako řádky e-mailu
+    setVal(root, 'trip-type', isReturn(s) ? 'zpáteční' : 'jednosměrný');
+    setVal(root, 'source-label', sourceLabel(srcEl ? srcEl.getAttribute('data-form-source') : ''));
+
+    // 5) kompletní tělo e-mailu — Webflow ho v notifikaci použít NEUMÍ
+    //    (podporuje jen {{formData}}), ale necháváme pro budoucí napojení
+    //    přes API / Make. Pole patří VEN z <form>, ať e-mail nešpiní.
     setVal(root, 'email-body', buildEmailBody(root, s));
   }
 
@@ -401,18 +426,14 @@
     });
 
     // 4) auto-save (debounce 300 ms)
-    root.addEventListener('input', function (e) {
+    function onEdit(e) {
       if (syncing) return;
-      var name = e.target.name || '';
-      if (FLIGHT_FIELDS.indexOf(name) !== -1) scheduleSave(root);
-      else if (STEP2_FIELDS.indexOf(name) !== -1) scheduleStep2Save(root);
-    });
-    root.addEventListener('change', function (e) {
-      if (syncing) return;
-      var name = e.target.name || '';
-      if (FLIGHT_FIELDS.indexOf(name) !== -1) scheduleSave(root);
-      else if (STEP2_FIELDS.indexOf(name) !== -1) scheduleStep2Save(root);
-    });
+      var k = keyOf(e.target);
+      if (FLIGHT_FIELDS.indexOf(k) !== -1) scheduleSave(root);
+      else if (STEP2_FIELDS.indexOf(k) !== -1) scheduleStep2Save(root);
+    }
+    root.addEventListener('input', onEdit);
+    root.addEventListener('change', onEdit);
 
     // 5) Odeslat
     var form = root.querySelector('form');
