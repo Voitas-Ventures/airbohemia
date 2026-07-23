@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.0.8  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.0.9  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,13 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.0.9:
+   - Návrat je nyní VOLITELNÝ. Bez data návratu = jednosměrný let.
+     tripType v JSONu se přepíná 'return' / 'oneway', returnAt je null.
+     V e-mailu se řádek "Datum návratu" u jednosměrného vůbec nezobrazí
+     a přibyl řádek "Typ letu: zpáteční / jednosměrný".
+   ⚠️ Ve Webflow SUNDEJ required z pole return-at.
 
    ZMĚNY v0.0.8:
    - Nové pole email-body: skript složí CELÝ notifikační e-mail (letové údaje
@@ -94,14 +101,20 @@
   }
 
   // ---- lidsky čitelný výstup (pro e-mailovou notifikaci) --------------------
+  // Jednosměrný, když chybí datum návratu; jinak zpáteční.
+  function isReturn(s) { return !!(s['return-at'] && s['return-at'].trim()); }
+
   function buildReadable(s) {
-    return [
+    var rows = [
+      'Typ letu: '      + (isReturn(s) ? 'zpáteční' : 'jednosměrný'),
       'Odkud: '         + (s.from || '—'),
       'Kam: '           + (s.to   || '—'),
       'Počet osob: '    + (s.pax       || '—'),
-      'Datum odletu: '  + (s['depart-at'] || '—'),
-      'Datum návratu: ' + (s['return-at'] || '—')
-    ].join('<br>');
+      'Datum odletu: '  + (s['depart-at'] || '—')
+    ];
+    // řádek s návratem přidáme jen u zpátečního letu
+    if (isReturn(s)) rows.push('Datum návratu: ' + s['return-at']);
+    return rows.join('<br>');
   }
 
   // Čitelný název místa, odkud poptávka přišla (pro člověka, ne 'hero'/'footer').
@@ -252,14 +265,14 @@
 
     // 2) strojové JSON — pro pozdější napojení (Avinode, CRM, …)
     setVal(root, 'itinerary', JSON.stringify({
-      tripType: 'return',
+      tripType: isReturn(s) ? 'return' : 'oneway',
       from:     s.from,
       fromCode: s['from-code'],
       to:       s.to,
       toCode:   s['to-code'],
       pax:      s.pax,
       departAt: s['depart-at'],
-      returnAt: s['return-at']
+      returnAt: isReturn(s) ? s['return-at'] : null
     }));
 
     // 3) odkud poptávka přišla (hero / footer) — strojově
