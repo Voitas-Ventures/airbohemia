@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  var AIRPORTS_URL = 'https://cdn.jsdelivr.net/gh/Voitas-Ventures/airbohemia@v0.1.0/airports.json';
+  var AIRPORTS_URL = 'https://cdn.jsdelivr.net/gh/Voitas-Ventures/airbohemia@v0.1.1/airports.json';
   var MAX_RESULTS  = 8;
   var MIN_CHARS    = 2;
 
