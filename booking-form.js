@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.1.0  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.1.1  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -15,6 +15,10 @@
    - NOVÉ: live sync mezi instancemi. Co napíšeš v hero, objeví se ve footeru
      a naopak. StyleJet měl jen "kdo uloží poslední, vyhrál" bez propisování.
    - NOVÉ: uniquifier duplicitních id/for (Webflow komponenta = 2× stejné id).
+
+   ZMĚNY v0.1.1:
+   - Pole pax (Počet osob) přijme jen celá kladná čísla. Znaky - + . , e
+     se blokují při psaní i po vložení ze schránky.
 
    ZMĚNY v0.1.0:
    - Pole se hledají podle data-f, ne podle name. Atribut `name` je tím
@@ -399,6 +403,19 @@
 
   function initInstance(root, idx) {
     uniquifyIds(root, idx);
+
+    // Počet osob: jen celá kladná čísla. Blokujeme - + . , e při psaní
+    // a čistíme i vložení ze schránky (keydown samo nestačí).
+    var paxEl = field(root, 'pax');
+    if (paxEl) {
+      paxEl.addEventListener('keydown', function (e) {
+        if (['-', '+', '.', ',', 'e', 'E'].indexOf(e.key) !== -1) e.preventDefault();
+      });
+      paxEl.addEventListener('input', function () {
+        var clean = paxEl.value.replace(/[^0-9]/g, '');
+        if (clean !== paxEl.value) paxEl.value = clean;
+      });
+    }
 
     // 1) obnovit uložený stav
     var saved = readJSON(sessionStorage, FLIGHT_KEY);
