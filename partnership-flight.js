@@ -1,5 +1,5 @@
 /* =========================================================================
-   partnership-flight.js  v0.1.0  —  Air Bohemia, stránka Partnership
+   partnership-flight.js  v0.1.4  —  Air Bohemia, stránka Partnership
    -------------------------------------------------------------------------
    Rozšíření formuláře „Pošlete nám poptávku letu“ o údaje o letu.
    Vychází z booking-form.js (stránka Rezervovat let / Zažít let) a používá
@@ -75,6 +75,7 @@
     var retWrap = $(block, '[data-return-field]');
     var tripBtns = $$(block, '[data-trip]');
 
+    // skryte pole se swapem uvnitr embedu: tlacitko hleda az po vlozeni
     var fields = $$(block, 'input, select, textarea');
     fields.forEach(function (el) { el._wasRequired = el.required; });
 
@@ -164,13 +165,16 @@
     });
 
     // ---- prohození trasy -------------------------------------------------
-    $$(block, '[data-swap-route]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (!from || !to) return;
-        var tmp = from.value; from.value = to.value; to.value = tmp;
-        updateSummary();
-      });
+    // Swap je uvnitr embedu, takze se posloucha delegovane na celem bloku.
+    block.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-swap-route], .partnership-form2_swap-btn');
+      if (!btn || !block.contains(btn)) return;
+      e.preventDefault();
+      if (!from || !to) return;
+      var tmp = from.value; from.value = to.value; to.value = tmp;
+      var fc = f(block, 'from-code'), tc = f(block, 'to-code');
+      if (fc && tc) { var t2 = fc.value; fc.value = tc.value; tc.value = t2; }
+      updateSummary();
     });
 
     // ---- počet osob: jen celé číslo 1–99 ---------------------------------
