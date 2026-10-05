@@ -1,5 +1,5 @@
 /* =========================================================================
-   partnership-flight.js  v0.1.4  —  Air Bohemia, stránka Partnership
+   partnership-flight.js  v0.1.5  —  Air Bohemia, stránka Partnership
    -------------------------------------------------------------------------
    Rozšíření formuláře „Pošlete nám poptávku letu“ o údaje o letu.
    Vychází z booking-form.js (stránka Rezervovat let / Zažít let) a používá
@@ -25,6 +25,12 @@
    7) Předvyplnění: let ze sessionStorage `ab_flight` (když už ho člověk
       zadal na Rezervovat let) a kontakt z localStorage `ab_contact`.
       Jen do prázdných polí. Po odeslání se kontakt uloží zpět.
+   8) data-f="email-body" dostane CELÉ tělo notifikačního e-mailu. Ve Webflow
+      (Site settings → Forms) pak stačí v těle zprávy jediné pole:
+        {{Obsah e-mailu}}
+      Důvod: Webflow si uvnitř komponenty generuje atributy name sám
+      (field-2, field-6, …), takže popisky polí v e-mailu nedávají smysl
+      a některé názvy se dokonce opakují. Tohle je obejde.
 
    VYŽADUJE (Page Settings → Before </body>, v tomhle pořadí):
      <script src="https://cdn.jsdelivr.net/npm/flatpickr@4"></script>
@@ -39,6 +45,24 @@
   var FLIGHT_KEY  = 'ab_flight';   // sessionStorage (booking-form.js)
   var CONTACT_KEY = 'ab_contact';  // localStorage   (booking-form.js)
   var CONTACT_FIELDS = ['name', 'phone', 'email'];
+
+  // Popisky pro tělo e-mailu. Klíč = data-f, hodnota = [česky, anglicky].
+  var LABELS = {
+    'request-type': ['Typ poptávky', 'Request type'],
+    'from':         ['Odkud', 'From'],
+    'to':           ['Kam', 'To'],
+    'pax':          ['Počet osob', 'Passengers'],
+    'depart-at':    ['Odlet', 'Departure'],
+    'return-at':    ['Návrat', 'Return'],
+    'trip-type':    ['Typ letu', 'Trip type'],
+    'company':      ['Společnost', 'Company'],
+    'name':         ['Jméno', 'Name'],
+    'phone':        ['Telefon', 'Phone'],
+    'email':        ['E-mail', 'E-mail'],
+    'note':         ['Zpráva', 'Message'],
+    'flight':       ['LET', 'FLIGHT'],
+    'contact':      ['KONTAKT', 'CONTACT']
+  };
 
   var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -135,6 +159,41 @@
       if (pax && pax.value) parts.push(pax.value + (isCs() ? ' os.' : ' pax'));
       if (trip && trip.value) parts.push(trip.value);
       summary.value = parts.join(' \u00b7 ');
+    }
+
+    // ---- celé tělo notifikačního e-mailu -----------------------------------
+    function label(key) { return (LABELS[key] || [key, key])[isCs() ? 0 : 1]; }
+
+    function buildEmailBody() {
+      var body = f(form, 'email-body');
+      if (!body) return;
+      var lines = [];
+      var dash = String.fromCharCode(8212);  // —
+
+      function row(key, el) {
+        lines.push(label(key) + ': ' + ((el && el.value.trim()) || dash));
+      }
+
+      var sel = select && select.options[select.selectedIndex];
+      lines.push(label('request-type') + ': ' + ((sel && sel.text.trim()) || dash));
+
+      if (isShown()) {
+        lines.push('', label('flight'));
+        row('from', from);
+        row('to', to);
+        row('pax', pax);
+        row('depart-at', dep);
+        if (mode === 'return') row('return-at', ret);
+        row('trip-type', trip);
+      }
+
+      lines.push('', label('contact'));
+      ['company', 'name', 'phone', 'email'].forEach(function (k) { row(k, f(form, k)); });
+
+      var note = f(form, 'note');
+      if (note) { lines.push('', label('note'), (note.value.trim() || dash)); }
+
+      body.value = lines.join(String.fromCharCode(10));
     }
 
     // ---- jednosměrný / zpáteční -------------------------------------------
@@ -261,6 +320,7 @@
         }
         updateSummary();
       }
+      buildEmailBody();
       var contact = readJSON(localStorage, CONTACT_KEY);
       CONTACT_FIELDS.forEach(function (n) {
         var el = f(form, n);
