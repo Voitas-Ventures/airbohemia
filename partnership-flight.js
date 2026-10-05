@@ -1,5 +1,5 @@
 /* =========================================================================
-   partnership-flight.js  v0.1.5  —  Air Bohemia, stránka Partnership
+   partnership-flight.js  v0.1.6  —  Air Bohemia, stránka Partnership
    -------------------------------------------------------------------------
    Rozšíření formuláře „Pošlete nám poptávku letu“ o údaje o letu.
    Vychází z booking-form.js (stránka Rezervovat let / Zažít let) a používá
@@ -25,7 +25,14 @@
    7) Předvyplnění: let ze sessionStorage `ab_flight` (když už ho člověk
       zadal na Rezervovat let) a kontakt z localStorage `ab_contact`.
       Jen do prázdných polí. Po odeslání se kontakt uloží zpět.
-   8) data-f="email-body" dostane CELÉ tělo notifikačního e-mailu. Ve Webflow
+   8) POJMENOVÁNÍ POLÍ PRO E-MAIL. Webflow v této komponentě generuje
+      atributy name/data-name samo (field-6, field-7, …) a nastavení "Name"
+      v Designeru se do výstupu nepropisuje. Navíc se některé názvy opakují
+      (Odkud i Zpráva měly obě field-6), takže se hodnoty v e-mailu přepisovaly.
+      Skript proto každému poli s data-f přepíše name i data-name na čitelný
+      popisek z tabulky LABELS níže. Běží hned po načtení, tedy dávno před
+      odesláním. Když Webflow někdy generování opraví, stačí tuhle část smazat.
+   9) data-f="email-body" dostane CELÉ tělo notifikačního e-mailu. Ve Webflow
       (Site settings → Forms) pak stačí v těle zprávy jediné pole:
         {{Obsah e-mailu}}
       Důvod: Webflow si uvnitř komponenty generuje atributy name sám
@@ -105,6 +112,19 @@
 
     var mode = block.getAttribute('data-trip-default') === 'oneway' ? 'oneway' : 'return';
     var shown = null;
+
+    // ---- názvy polí pro notifikační e-mail --------------------------------
+    function renameFields() {
+      var seen = {};
+      $$(form, '[data-f]').forEach(function (el) {
+        if (!('name' in el)) return;
+        var key = el.getAttribute('data-f');
+        var nm = (LABELS[key] || [key, key])[isCs() ? 0 : 1];
+        if (seen[nm]) nm = nm + ' ' + (++seen[nm]); else seen[nm] = 1;
+        el.name = nm;
+        el.setAttribute('data-name', nm);
+      });
+    }
 
     // ---- zapnutí / vypnutí polí ------------------------------------------
     function isShown() { return select ? select.selectedIndex === showIndex : true; }
@@ -330,6 +350,7 @@
     }, true);
 
     // ---- start -----------------------------------------------------------
+    renameFields();
     initDates();
     setMode(mode);
     prefill();
