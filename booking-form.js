@@ -1,5 +1,5 @@
 /* =========================================================================
-   booking-form.js  v0.1.1  —  Air Bohemia poptávkový formulář
+   booking-form.js  v0.2.0  —  Air Bohemia poptávkový formulář
    -------------------------------------------------------------------------
    Odvozeno z StyleJet booking-form.js v0.0.25, ale výrazně zjednodušeno:
 
@@ -36,6 +36,17 @@
      V e-mailu se řádek "Datum návratu" u jednosměrného vůbec nezobrazí
      a přibyl řádek "Typ letu: zpáteční / jednosměrný".
    ⚠️ Ve Webflow SUNDEJ required z pole return-at.
+
+   v0.2.0 — PŘEPÍNAČ JEDNOSMĚRNÝ / ZPÁTEČNÍ (volitelný)
+   - Markup (uvnitř [data-booking], vedle polí s datumy):
+       <div data-trip="oneway">Jednosměrný</div>
+       <div data-trip="return">Zpáteční</div>
+     Obal pole Datum návratu dostane atribut [data-return-field].
+   - Aktivní tlačítko má třídu is-active a aria-pressed="true".
+   - Jednosměrný schová Datum návratu a vyprázdní ho, takže isReturn()
+     i celý zbytek skriptu (e-mail, JSON, sync mezi instancemi) funguje
+     beze změny — režim se pořád pozná podle toho, jestli je datum vyplněné.
+   - Když přepínač ve formuláři není, chová se skript jako dřív.
 
    ZMĚNY v0.0.8:
    - Nové pole email-body: skript složí CELÝ notifikační e-mail (letové údaje
@@ -175,6 +186,12 @@
     return s;
   }
 
+  function syncTrip(root) {
+    if (!root._setTripMode) return;
+    var el = field(root, 'return-at');
+    root._setTripMode(el && el.value ? 'return' : 'oneway', true);
+  }
+
   function applyFlight(root, s) {
     FLIGHT_FIELDS.forEach(function (n) {
       if (n === 'depart-at' || n === 'return-at') {
@@ -191,6 +208,7 @@
         setVal(root, n, s[n]);
       }
     });
+    syncTrip(root);
   }
 
   function saveFlight(root) {
@@ -429,6 +447,49 @@
       swapRoute(root);
     });
 
+    // 2b) přepínač jednosměrný / zpáteční (když ve formuláři je)
+    var tripBtns = $$('[data-trip]', root);
+    if (tripBtns.length) {
+      var retWrap = $('[data-return-field]', root);
+      var retEl   = field(root, 'return-at');
+
+      function setTripMode(mode, silent) {
+        var oneway = mode === 'oneway';
+        tripBtns.forEach(function (b) {
+          var on = (b.getAttribute('data-trip') === mode);
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        if (retWrap) retWrap.style.display = oneway ? 'none' : '';
+        if (retEl) {
+          retEl.disabled = oneway;
+          if (oneway && retEl.value) {
+            if (retEl._flatpickr) retEl._flatpickr.clear(); else retEl.value = '';
+          }
+        }
+        if (!silent) scheduleSave(root);
+      }
+      root._setTripMode = setTripMode;
+
+      tripBtns.forEach(function (b) {
+        if (b.tagName === 'BUTTON') b.type = 'button';
+        else { b.setAttribute('role', 'button'); b.tabIndex = 0; }
+        b.addEventListener('click', function (e) {
+          e.preventDefault();
+          setTripMode(b.getAttribute('data-trip'));
+        });
+        b.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setTripMode(b.getAttribute('data-trip'));
+          }
+        });
+      });
+
+      // výchozí režim podle toho, co se obnovilo ze session
+      setTripMode(retEl && retEl.value ? 'return' : 'oneway', true);
+    }
+
     // 3) Pokračovat v nezávazné poptávce
     var nextBtn = $('[data-step1-next]', root);
     if (nextBtn) nextBtn.addEventListener('click', function (e) {
@@ -446,6 +507,9 @@
     function onEdit(e) {
       if (syncing) return;
       var k = keyOf(e.target);
+      if (k === 'return-at' && root._setTripMode && e.target.value) {
+        root._setTripMode('return', true);   // vyplněné datum = zpáteční
+      }
       if (FLIGHT_FIELDS.indexOf(k) !== -1) scheduleSave(root);
       else if (STEP2_FIELDS.indexOf(k) !== -1) scheduleStep2Save(root);
     }
