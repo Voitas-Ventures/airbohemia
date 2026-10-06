@@ -1,5 +1,5 @@
 /* =========================================================================
-   partnership-flight.js  v0.1.7  —  Air Bohemia, stránka Partnership
+   partnership-flight.js  v0.4.0  —  Air Bohemia, stránka Partnership
    -------------------------------------------------------------------------
    Rozšíření formuláře „Pošlete nám poptávku letu“ o údaje o letu.
    Vychází z booking-form.js (stránka Rezervovat let / Zažít let) a používá
@@ -114,13 +114,18 @@
     var shown = null;
 
     // ---- názvy polí pro notifikační e-mail --------------------------------
+    // Názvy jsou shodné s formulářem na Rezervovat let, aby se stejná data
+    // v e-mailech z obou stránek jmenovala stejně. Jsou to technické názvy,
+    // ne popisky — proto se nepřekládají.
+    var FIELD_NAMES = { 'company': 'company-name' };
+
     function renameFields() {
       var seen = {};
       $$(form, '[data-f]').forEach(function (el) {
         if (!('name' in el)) return;
         var key = el.getAttribute('data-f');
-        var nm = (LABELS[key] || [key, key])[isCs() ? 0 : 1];
-        if (seen[nm]) nm = nm + ' ' + (++seen[nm]); else seen[nm] = 1;
+        var nm = FIELD_NAMES[key] || key;
+        if (seen[nm]) nm = nm + '-' + (++seen[nm]); else seen[nm] = 1;
         el.name = nm;
         el.setAttribute('data-name', nm);
       });
@@ -339,16 +344,6 @@
           return;
         }
         updateSummary();
-      // Když se let neposílá, polím se sebere name → Webflow je vůbec nedostane
-      if (!isShown()) {
-        fields.forEach(function (el) {
-          if (!el.name) return;
-          el.setAttribute('data-name-off', el.name);
-          el.removeAttribute('name');
-          el.removeAttribute('data-name');
-          el.value = '';
-        });
-      }
       }
       buildEmailBody();
       var contact = readJSON(localStorage, CONTACT_KEY);
