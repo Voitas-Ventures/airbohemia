@@ -1,5 +1,5 @@
 /* =========================================================================
-   partnership-flight.js  v0.1.6  —  Air Bohemia, stránka Partnership
+   partnership-flight.js  v0.1.7  —  Air Bohemia, stránka Partnership
    -------------------------------------------------------------------------
    Rozšíření formuláře „Pošlete nám poptávku letu“ o údaje o letu.
    Vychází z booking-form.js (stránka Rezervovat let / Zažít let) a používá
