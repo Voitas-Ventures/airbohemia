@@ -339,6 +339,16 @@
           return;
         }
         updateSummary();
+      // Když se let neposílá, polím se sebere name → Webflow je vůbec nedostane
+      if (!isShown()) {
+        fields.forEach(function (el) {
+          if (!el.name) return;
+          el.setAttribute('data-name-off', el.name);
+          el.removeAttribute('name');
+          el.removeAttribute('data-name');
+          el.value = '';
+        });
+      }
       }
       buildEmailBody();
       var contact = readJSON(localStorage, CONTACT_KEY);
