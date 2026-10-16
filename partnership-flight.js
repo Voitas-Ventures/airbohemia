@@ -1,5 +1,5 @@
 /* =========================================================================
-   partnership-flight.js  v0.4.0  —  Air Bohemia, stránka Partnership
+   partnership-flight.js  v0.5.0  —  Air Bohemia, stránka Partnership
    -------------------------------------------------------------------------
    Rozšíření formuláře „Pošlete nám poptávku letu“ o údaje o letu.
    Vychází z booking-form.js (stránka Rezervovat let / Zažít let) a používá
@@ -38,6 +38,15 @@
       Důvod: Webflow si uvnitř komponenty generuje atributy name sám
       (field-2, field-6, …), takže popisky polí v e-mailu nedávají smysl
       a některé názvy se dokonce opakují. Tohle je obejde.
+  10) TLAČÍTKO „ODESLAT DALŠÍ POŽADAVEK“ v poděkovacím okně (.w-form-done).
+      Po kliknutí se poděkování schová, formulář se zase ukáže a vynuluje:
+      smaže se let (odkud, kam, počet osob, data), typ poptávky se vrátí na
+      „Vyberte typ požadavku …“, blok s letem se zavře a zpráva se vymaže.
+      Údaje o klientovi (společnost, jméno, telefon, e-mail) zůstanou.
+      Nevyžaduje žádný atribut navíc — chytá se tlačítko i odkaz na #
+      uvnitř poděkovacího okna. Odkaz vedoucí jinam (třeba na homepage)
+      zůstane funkční. Atributem data-form-reset se dá reset vynutit
+      i na odkazu s normální adresou.
 
    VYŽADUJE (Page Settings → Before </body>, v tomhle pořadí):
      <script src="https://cdn.jsdelivr.net/npm/flatpickr@4"></script>
@@ -51,7 +60,7 @@
   var ANIM_MS     = 300;           // délka rozbalení bloku s letem
   var FLIGHT_KEY  = 'ab_flight';   // sessionStorage (booking-form.js)
   var CONTACT_KEY = 'ab_contact';  // localStorage   (booking-form.js)
-  var CONTACT_FIELDS = ['name', 'phone', 'email'];
+  var CONTACT_FIELDS = ['company', 'name', 'phone', 'email'];
 
   // Popisky pro tělo e-mailu. Klíč = data-f, hodnota = [česky, anglicky].
   var LABELS = {
@@ -92,6 +101,10 @@
 
     var form = block.closest('form');
     if (!form) return;
+
+    var wrapper   = form.closest('.w-form');
+    var submitBtn = $(form, 'input[type="submit"], button[type="submit"]');
+    var submitLabel = submitBtn ? (submitBtn.value || submitBtn.textContent) : '';
 
     var select    = f(form, 'request-type') || $(form, 'select');
     var showIndex = parseInt(block.getAttribute('data-flight-option') || '0', 10);
@@ -176,6 +189,7 @@
     // ---- shrnutí letu pro e-mail ----------------------------------------
     function updateSummary() {
       if (!summary) return;
+      if (!isShown()) { summary.value = ''; return; }
       var parts = [];
       var route = [from && from.value, to && to.value].filter(Boolean).join(' \u2192 ');
       if (route) parts.push(route);
@@ -318,11 +332,81 @@
         if (el._flatpickr) el._flatpickr.setDate(v, true, 'd.m.Y'); else el.value = v;
       });
       if (fl['return-at'] === '' && fl['depart-at']) setMode('oneway');
+      prefillContact();
+    }
 
+    function prefillContact() {
       var contact = readJSON(localStorage, CONTACT_KEY);
       CONTACT_FIELDS.forEach(function (n) {
         var el = f(form, n);
         if (el && !el.value && contact[n]) el.value = contact[n];
+      });
+    }
+
+    // ---- „Odeslat další požadavek“ ---------------------------------------
+    // Webflow po úspěšném odeslání formulář jen schová (display:none) a ukáže
+    // .w-form-done. Hodnoty v polích zůstanou, takže stačí vymazat ty, které
+    // se týkají konkrétní poptávky, a kontakt nechat být.
+    function clearValue(el) {
+      if (!el) return;
+      if (el._flatpickr) el._flatpickr.clear(); else el.value = '';
+      el.classList.remove('is-invalid');
+    }
+
+    function resetForm() {
+      // 1) poptávka: let, zpráva
+      [from, to, pax, dep, ret, f(block, 'from-code'), f(block, 'to-code'),
+       f(form, 'note'), f(form, 'email-body'), summary].forEach(clearValue);
+      if (ret && ret._flatpickr) ret._flatpickr.set('minDate', 'today');
+
+      // 2) typ poptávky zpět na úvodní možnost.
+      //    Vlastní select v embedu i tenhle skript poslouchají change,
+      //    takže se popisek i blok s letem srovnají samy.
+      if (select) {
+        select.selectedIndex = 0;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      // 3) výchozí režim letu a zavřený blok
+      setMode(block.getAttribute('data-trip-default') === 'oneway' ? 'oneway' : 'return');
+      show(false);
+
+      // 4) kontakt klienta zůstává (doplní se i po případném obnovení stránky)
+      prefillContact();
+      updateSummary();
+
+      // 5) zpět z poděkování na formulář
+      if (wrapper) {
+        $$(wrapper, '.w-form-done, .w-form-fail').forEach(function (el) {
+          el.style.display = 'none';
+        });
+      }
+      form.style.display = '';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        if (submitBtn.tagName === 'INPUT') submitBtn.value = submitLabel;
+        else submitBtn.textContent = submitLabel;
+      }
+
+      var top = $(form, '.partnership-form2_title-wrapper') || form;
+      if (top.scrollIntoView) {
+        top.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+      }
+      var trigger = $(form, '.select-custom_trigger');
+      if (trigger) { try { trigger.focus({ preventScroll: true }); } catch (e) { /* starší prohlížeč */ } }
+    }
+
+    if (wrapper) {
+      wrapper.addEventListener('click', function (e) {
+        var done = e.target.closest('.w-form-done');
+        if (!done || !wrapper.contains(done)) return;
+        var btn = e.target.closest('a, button, [data-form-reset]');
+        if (!btn) return;
+        // odkaz mimo stránku necháme být
+        var href = btn.getAttribute('href') || '';
+        if (!btn.hasAttribute('data-form-reset') && href && href.charAt(0) !== '#') return;
+        e.preventDefault();
+        resetForm();
       });
     }
 
